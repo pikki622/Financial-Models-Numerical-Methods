@@ -37,11 +37,11 @@ class Kalman_regression():
         self.loglikelihood = None
         self.R2_pre_fit = None
         self.R2_post_fit = None
-        
+
         self.betas = None
         self.Ps = None
-        
-        if self.alpha0==None or self.beta0==None or self.var_eps==None:
+
+        if self.alpha0 is None or self.beta0 is None or self.var_eps is None:
             self.alpha0, self.beta0, self.var_eps = self.get_OLS_params()
             print("alpha0, beta0 and var_eps initialized by OLS")
             
@@ -86,32 +86,32 @@ class Kalman_regression():
         if (X is None) and (Y is None):
             X = self.X
             Y = self.Y
-        
+
         X = np.asarray(X)
         Y = np.asarray(Y)
-        
+
         N = len(X)
         if len(Y) != N:
             raise ValueError("Y and X must have same length") 
-    
+
         if var_eta is not None:
             self.var_eta = var_eta
         if var_eps is not None:
             self.var_eps = var_eps
-        if self.var_eta==None:
+        if self.var_eta is None:
             raise ValueError("var_eta is None")
-        
+
         betas = np.zeros_like(X)
         Ps = np.zeros_like(X)
         res_pre = np.zeros_like(X)       # pre-fit residuals
-        
+
         Y = Y - self.alpha0              # re-define Y
         P = self.P0
         beta = self.beta0
-        
+
         log_2pi = np.log(2 * np.pi)
         loglikelihood = 0
-    
+
         for k in range(N):
             # Prediction
             beta_p = beta                  # predicted beta 
@@ -121,27 +121,27 @@ class Kalman_regression():
             r = Y[k] - beta_p * X[k]
             S = P_p * X[k]**2 + self.var_eps
             KG = X[k] * P_p / S            # Kalman gain
-        
+
             # Update
             beta = beta_p + KG * r
             P = P_p * (1 - KG * X[k])
 
             loglikelihood += 0.5 * ( -log_2pi - np.log(S) - (r**2/S) )      
-        
+
             betas[k] = beta
             Ps[k] = P
             res_pre[k] = r
-            
+
         res_post = Y - X * betas   # post fit residuals 
-        sqr_err = Y - np.mean(Y)                             
+        sqr_err = Y - np.mean(Y)
         R2_pre = 1 - ( res_pre @ res_pre )/(sqr_err @ sqr_err)
         R2_post = 1 - ( res_post @ res_post )/(sqr_err @ sqr_err)
-        
+
         self.loglikelihood = loglikelihood
         self.R2_post_fit = R2_post
         self.R2_pre_fit = R2_pre
-        
-        self.betas = betas 
+
+        self.betas = betas
         self.Ps = Ps
         
 
@@ -250,17 +250,17 @@ def plot_betas(X, Y, true_rho, rho_err, var_eta=None, training_size = 250, rolli
         rolling window: for the computation of the rolling regression
     """
     
-    X_train = X[:training_size] 
-    X_test = X[training_size:] 
-    Y_train = Y[:training_size] 
-    Y_test = Y[training_size:] 
+    X_train = X[:training_size]
+    X_test = X[training_size:]
+    Y_train = Y[:training_size]
+    Y_test = Y[training_size:]
     #beta_tr, alpha_tr, _ ,_ ,_  = ss.linregress(X_train, Y_train)
     #resid_tr = Y_train - beta_tr * X_train - alpha_tr
     #var_eps = resid_tr.var(ddof=2)
-    
+
     KR = Kalman_regression(X_train, Y_train)
     var_eps = KR.var_eps
-    
+
     if var_eta is None:
         KR.calibrate_MLE()
         var_eta, var_eps = KR.var_eta, KR.var_eps
@@ -269,10 +269,10 @@ def plot_betas(X, Y, true_rho, rho_err, var_eta=None, training_size = 250, rolli
             var_eta = var_eps
         else:
             print("MLE parameters")
-        
+
     print("var_eta = ", var_eta)
     print("var_eps = ", var_eps)
-    
+
     KR.run(X_train, Y_train, var_eps=var_eps, var_eta=var_eta)
     KR.beta0, KR.P0 = KR.betas[-1], KR.Ps[-1]
     KR.run(X_test, Y_test)
@@ -282,17 +282,22 @@ def plot_betas(X, Y, true_rho, rho_err, var_eta=None, training_size = 250, rolli
     rolling_beta = rolling_regression_test(X, Y, rolling_window, training_size)
     # Smoother
     betas_smooth, Ps_smooth = KR.RTS_smoother(X_test, Y_test)
- 
+
     plt.figure(figsize=(16,6))
     plt.plot(betas_KF, color="royalblue", label="Kalman filter betas")
-    plt.plot(rolling_beta, color="orange", label="Rolling beta, window={}".format(rolling_window))
+    plt.plot(
+        rolling_beta,
+        color="orange",
+        label=f"Rolling beta, window={rolling_window}",
+    )
     plt.plot( betas_smooth, label="RTS smoother", color="maroon" )
     plt.plot(rho_err[training_size+1:], color="springgreen", marker='o', linestyle="None", label="rho with model error")
     plt.plot( true_rho[training_size+1:], color="black", alpha=2, label="True rho")
     plt.fill_between(x=range(len(betas_KF)) ,y1=betas_KF + np.sqrt(Ps_KF), y2=betas_KF - np.sqrt(Ps_KF), 
                      alpha=0.5, linewidth=2, color='seagreen', label="Kalman Std Dev: $\pm 1 \sigma$")
-    plt.legend(); plt.title("Kalman results")
-    
+    plt.legend()
+    plt.title("Kalman results")
+
     print("MSE Rolling regression: ", np.mean((np.array(rolling_beta) - true_rho[training_size+1:]  )**2) )
     print("MSE Kalman Filter: ", np.mean((betas_KF - true_rho[training_size+1:])**2) )
     print("MSE RTS Smoother: ", np.mean((betas_smooth - true_rho[training_size+1:] )**2) )
