@@ -20,13 +20,13 @@ class Option_param():
         self.v0 = v0
         self.K = K
         self.T = T
-        
-        if (exercise=="European" or exercise=="American"):
+
+        if exercise in ["European", "American"]:
             self.exercise = exercise
         else: 
             raise ValueError("invalid type. Set 'European' or 'American'")
-        
-        if (payoff=="call" or payoff=="put"):
+
+        if payoff in ["call", "put"]:
             self.payoff = payoff
         else: 
             raise ValueError("invalid type. Set 'call' or 'put'")

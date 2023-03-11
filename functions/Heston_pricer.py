@@ -64,26 +64,24 @@ class Heston_pricer():
         Time = return execution time if True
         """
         t_init = time()
-             
+
         S_T, _ = Heston_paths(N=N, paths=paths, T=self.T, S0=self.S0, v0=self.v0, mu=self.r, rho=self.rho, 
                             kappa=self.kappa, theta=self.theta, sigma=self.sigma  )
         S_T = S_T.reshape( (paths,1) )
-        DiscountedPayoff = np.exp(-self.r*self.T) * self.payoff_f(S_T) 
+        DiscountedPayoff = np.exp(-self.r*self.T) * self.payoff_f(S_T)
         V = scp.mean( DiscountedPayoff, axis=0 )
         std_err = ss.sem( DiscountedPayoff )
-        
+
         if (Err == True):
-            if (Time == True):
-                elapsed = time()-t_init
-                return V, std_err, elapsed
-            else:
+            if Time != True:
                 return V, std_err
+            elapsed = time()-t_init
+            return V, std_err, elapsed
+        elif (Time == True):
+            elapsed = time()-t_init
+            return V, elapsed
         else:
-            if (Time == True):
-                elapsed = time()-t_init
-                return V, elapsed
-            else:
-                return V        
+            return V        
 
 
 
@@ -94,17 +92,17 @@ class Heston_pricer():
         k = np.log(self.K/self.S0)                # log moneyness
         cf_H_b_good = partial(cf_Heston_good, t=self.T, v0=self.v0, mu=self.r, theta=self.theta, 
                                   sigma=self.sigma, kappa=self.kappa, rho=self.rho ) 
-        
+
         limit_max = 2000      # right limit in the integration                
-        
+
         if self.payoff == "call":
-            call = self.S0 * Q1(k, cf_H_b_good, limit_max) \
-                                                - self.K * np.exp(-self.r*self.T) * Q2(k, cf_H_b_good, limit_max)
-            return call
+            return self.S0 * Q1(k, cf_H_b_good, limit_max) - self.K * np.exp(
+                -self.r * self.T
+            ) * Q2(k, cf_H_b_good, limit_max)
         elif self.payoff == "put":
-            put = self.K * np.exp(-self.r*self.T) * (1 - Q2(k, cf_H_b_good, limit_max)) \
-                                                - self.S0 * (1-Q1(k, cf_H_b_good, limit_max))
-            return put
+            return self.K * np.exp(-self.r * self.T) * (
+                1 - Q2(k, cf_H_b_good, limit_max)
+            ) - self.S0 * (1 - Q1(k, cf_H_b_good, limit_max))
         else:
             raise ValueError("invalid type. Set 'call' or 'put'")
 
